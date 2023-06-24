@@ -17,7 +17,7 @@ class RedisClient {
    * Check connection status
    * @returns `true` when the connection to Redis is a success
   */
-  isAlive() { // TODO :: unsolved functionality
+  isAlive() {
     return this.client.connected;
   }
 
