@@ -40,7 +40,7 @@ class RedisClient {
   async set(key, value, duration) {
     const setter = promisify(this.client.set).bind(this.client);
     const result = await setter(key, value)
-    this.client.expire(key, duration);
+    if (duration) { this.client.expire(key, duration);}
   }
   /**
    * Deletes a key and it's value from storage

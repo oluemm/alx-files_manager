@@ -10,7 +10,10 @@ import redisClient from './utils/redis';
   setTimeout(async () => {
     console.log(await redisClient.get('myKey'));
   }, 1000 * 10);
-  console.log('Deleting key: ping');
-  await redisClient.del('ping')
-  console.log(`Value of ping is: ${await redisClient.get('ping')}`);
+  // testing delete
+  await redisClient.set('year', 2023);
+  console.log(`Value of year is: ${await redisClient.get('year')}`);
+  console.log('Deleting key: year');
+  await redisClient.del('year')
+  console.log(`Value of year is: ${await redisClient.get('year')}`);
 })();
