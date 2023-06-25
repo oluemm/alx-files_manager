@@ -11,10 +11,12 @@ class DBClient {
     // { useUnifiedTopology: true } new server discover & monitoring engine
     this.client.connect()
       .then(() => {
-        this.db = this.client.db(`${database}`);
+        this.db = this.client.db(database);
       }).catch((err) => {
         console.log(err);
       });
+    /* UNCOMMENT TOT SHOW client object, methods and properties */
+    // console.log(this.client);
   }
 
   isAlive() {
@@ -36,7 +38,5 @@ class DBClient {
     return num;
   }
 }
-
 const dbClient = new DBClient();
-
-module.exports = dbClient;
+export default dbClient;
