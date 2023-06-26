@@ -23,7 +23,7 @@ export default class AuthController {
       // console.log(uuid);
       const key = `auth_${uuid}`;
       // console.log(key);
-      await redisClient.set(key, auth, 24 * 60 * 60);
+      await redisClient.set(key, user._id, 24 * 60 * 60);
       response.status(200).send({ token: uuid });
     }
   }
