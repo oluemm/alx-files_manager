@@ -28,7 +28,7 @@ export default class UsersController {
       const userList = await users.insertOne({ email, password: hashedPassword });
       const newUser = userList.ops[0];
       // console.log(newUser);
-      response.status(201).send({ _id: newUser.id, email: newUser.email });
+      response.status(201).send({ id: newUser.id, email: newUser.email });
     }
   }
 
