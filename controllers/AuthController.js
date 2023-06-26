@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import sha1 from 'sha1';
 import { v4 as uuid4 } from 'uuid';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
@@ -11,9 +11,7 @@ export default class AuthController {
     const [email, password] = atob(auth).split(':');
     const users = dbClient.db.collection('users');
     // console.log(email, password);
-    const hashedPassword = crypto.createHash('sha1')
-      .update(password)
-      .digest('hex');
+    const hashedPassword = sha1(password)
     const user = await users.findOne({ email, password: hashedPassword });
     // console.log(user);
     if (!user) {
@@ -22,8 +20,8 @@ export default class AuthController {
       const uuid = uuid4();
       // console.log(uuid);
       const key = `auth_${uuid}`;
-      // console.log(key);
-      await redisClient.set(key, user._id, 24 * 60 * 60);
+      // console.log(user);
+      await redisClient.set(key, user._id.toString(), 24 * 60 * 60);
       response.status(200).send({ token: uuid });
     }
   }
