@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import sha1 from 'sha1';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 import { ObjectID } from 'mongodb';
@@ -25,14 +25,13 @@ export default class UsersController {
         response.status(400).send({ error: 'Already exist' });
       } else {
       // hash the user's password
-        const hashedPassword = crypto.createHash('sha1')
-          .update(password)
-          .digest('hex');
+        const hashedPassword = sha1(password);
         // create new user in db
         const userList = await users.insertOne({ email, password: hashedPassword });
+        // console.log(userList);
         const newUser = userList.ops[0];
         // console.log(newUser);
-        response.status(201).send({ id: newUser._id, email: newUser.email });
+        response.status(201).send({ id: newUser._id, email });
       }
     }
   }
@@ -49,7 +48,11 @@ export default class UsersController {
       const id = new ObjectID(userId);
       const users = dbClient.db.collection('users');
       const user = await users.findOne({ _id: id });
-      response.send({ id: user._id, email: user.email });
+      if (user) {
+        response.send({ id: user._id, email: user.email });
+      } else {
+        response.status(401).send({ error: 'Unauthorized' });
+      }
     }
   }
 }
