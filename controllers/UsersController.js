@@ -50,7 +50,7 @@ export default class UsersController {
       // console.log(email, password);
       const hashedPassword = crypto.createHash('sha1').update(password).digest('hex');
       const user = await users.findOne({ email, password: hashedPassword });
-      response.status(200).send({ id: user._id, email: user.email });
+      response.send({ id: user._id, email: user.email });
     }
   }
 }
