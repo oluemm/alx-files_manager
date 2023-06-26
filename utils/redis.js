@@ -23,7 +23,7 @@ class RedisClient {
 
   /**
    * Async function that takes a `key` as argument and returns it's value.
-   * @param {String} key
+   * @param {string} key
    * @returns null or value of the given key
    */
   async get(key) {
@@ -34,9 +34,9 @@ class RedisClient {
 
   /**
    * Stores a given `key` and `value` pair and expires at given `duration`
-   * @param {String} key name of the key to be stored
-   * @param {String} value corresponding value
-   * @param {Number} duration expiration time in seconnds
+   * @param {string} key name of the key to be stored
+   * @param {string} value corresponding value
+   * @param {number} duration expiration time in seconnds
    */
   async set(key, value, duration) {
     const setter = promisify(this.client.set).bind(this.client);
@@ -46,7 +46,7 @@ class RedisClient {
 
   /**
    * Deletes a key and it's value from storage
-   * @param {String} key key to be deleted
+   * @param {string} key key to be deleted
    */
   async del(key) {
     const delet = promisify(this.client.del).bind(this.client);
