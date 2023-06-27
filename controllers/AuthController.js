@@ -5,36 +5,48 @@ import redisClient from '../utils/redis';
 
 export default class AuthController {
   static async getConnect(request, response) {
+    let credential = '';
+    let statusCode = 400;
+    let message = { error: 'Unauthorized' };
     // const auth = request.get('Authorization'); // works too
-    const auth = (request.headers.authorization || '').split(' ')[1] || '';
-    // console.log(atob(auth));
+    const auth = (request.headers.authorization || '');
     // Authorization header validation
     if ((!auth) || (typeof (auth) !== 'string') || (auth.slice(0, 6) !== 'Basic ')) {
-      response.status(401).send({ error: 'Unauthorized' });
+      statusCode = 401;
+      message = { error: 'Unauthorized' };
+    } else {
+      credential = auth.split(' ')[1] || '';
+      // console.log(credential);
     }
     // eslint hates atob(auth)
-    const credentials = Buffer.from(auth, 'base64').toString('utf8');
+    const credentials = Buffer.from(credential, 'base64').toString('utf8');
+    // console.log(credentials);
     const [email, password] = credentials.split(':');
     if (!email || !password) {
-      response.status(401).send({ error: 'Unauthorized' });
-    }
-    // access users collection in mongo
-    const users = dbClient.db.collection('users');
-    // console.log(email, password);
-    const hashedPassword = sha1(password);
-    // retrieve user whose password and email matches the given
-    const user = await users.findOne({ email, password: hashedPassword });
-    // console.log(user);
-    if (!user) { // if no user is found
-      response.status(401).send({ error: 'Unauthorized' });
+      statusCode = 401;
+      message = { error: 'Unauthorized' };
     } else {
-      const token = uuid4();
-      // console.log(token);
-      const key = `auth_${token}`;
+    // access users collection in mongo
+      const users = dbClient.db.collection('users');
+      // console.log(email, password);
+      const hashedPassword = sha1(password);
+      // retrieve user whose password and email matches the given
+      const user = await users.findOne({ email, password: hashedPassword });
       // console.log(user);
-      await redisClient.set(key, user._id.toString(), 24 * 60 * 60);
-      response.status(200).send({ token });
+      if (!user) { // if no user is found
+        statusCode = 401;
+        message = { error: 'Unauthorized' };
+      } else {
+        const token = uuid4();
+        // console.log(token);
+        const key = `auth_${token}`;
+        // console.log(user);
+        await redisClient.set(key, user._id.toString(), 24 * 60 * 60);
+        statusCode = 200;
+        message = { token };
+      }
     }
+    response.status(statusCode).send(message);
   }
 
   static async getDisconnect(request, response) {
