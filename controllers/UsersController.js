@@ -3,7 +3,7 @@ import { ObjectID } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
-export default class UsersController {
+class UsersController {
   static async postNew(request, response) {
     // extract data ffrom request body
     const { email, password } = request.body;
@@ -62,3 +62,4 @@ export default class UsersController {
     response.status(statusCode).send(message);
   }
 }
+module.exports = UsersController;

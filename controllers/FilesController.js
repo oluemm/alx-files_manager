@@ -1,79 +1,116 @@
-import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import Queue from 'bull/lib/queue';
+import { promises as fs } from 'fs';
+import { ObjectID } from 'mongodb';
 import redisClient from '../utils/redis';
 import dbClient from '../utils/db';
-import crypto from 'crypto';
-import { ObjectID } from 'mongodb';
 
-const FOLDER_PATH = process.env.FOLDER_PATH || '/tmp/files_manager';
-const fileStorage = multer.diskStorage({
-  destination: (req, res, next) => {
-    next(null, FOLDER_PATH);
-  },
-  filename: (req, res, next) => {
-    next(null, file.originalname);
-  }
-});
-const upload = multer({ storage: fileStorage }).single('file_handler');
+const fileQueue = new Queue('thumbnail generation');
 
-export default class FilesController {
+class FilesController {
   static async postUpload(request, response) {
-    const acceptedTypes = ['folder', 'file', 'image'];
-    const xToken = request.get('X-Token');
-    // console.log(xToken);
-    // console.log(`auth_${xToken}`);
-    const authToken = await redisClient.get(`auth_${xToken}`);
-    const userObjId = new ObjectID(authToken);
-    const users = dbClient.db.collection('users');
-    const existingUser = await users.findOne({ _id: userObjId });
-
-    console.log(existingUser);
-    // const userLogin = atob(authToken);
-    // const [email, password] = userLogin.split(":");
-    // const hashedPassword = crypto.createHash("sha1")
-    //   .update(password).digest("hex");
-    // const users = dbClient.db.collection('users')
-    // const validUser = users.findOne({email, password: hashedPassword});
-    let statusCode = 400;
-    let returnData = '';
-    if (!authToken) {
-      statusCode = 401;
-      returnData = { error: 'Unauthorized' };
-    } else {
-      // await redisClient.del(`auth_${xToken}`);
-      const {
-        name, type, data,
-      } = request.body;
-      let { parentId, isPublic } = request.body;
-
-      if (!name) {
-        statusCode = 400;
-        returnData = { error: 'Missing name' };
-        // response.status(400).send({ error: 'Missing name' });
-      } else if (!type || !acceptedTypes.includes(type)) {
-        statusCode = 400;
-        returnData = { error: 'Missing type' };
-      } else if (!data && type !== 'folder') {
-        statusCode = 400;
-        returnData = { error: 'Missing data' };
-      } else if (parentId) {
-        const files = dbClient.db.collection('files');
-        const currentFile = await files.findOne({ id: parentId });
-        if (!currentFile) {
-          statusCode = 400;
-          returnData = { error: 'Parent not found' };
-        } else if (currentFile.type !== 'folder') {
-          statusCode = 400;
-          returnData = { error: 'Parent is not a folder' };
-        }
-      } else {
-        if (!parentId) { parentId = 0; }
-        if (!isPublic) { isPublic = false; }
-        statusCode = 200;
-        returnData = {
-          name, type, parentId, isPublic, data, success: 'All is well',
-        };
+    const token = request.header('X-Token');
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+    // convert id from string to the ObjectID format it usually is in mongodb
+    const userObjId = new ObjectID(userId);
+    if (userId) {
+      const users = dbClient.db.collection('users');
+      const existingUser = await users.findOne({ _id: userObjId });
+      if (!existingUser) {
+        response.status(401).json({ error: 'Unauthorized' });
+        return;
       }
+      const { name, type, data } = request.body;
+      const parentId = request.body.parentId || 0;
+      const isPublic = request.body.isPublic || false;
+      const allowedTypes = ['file', 'folder', 'image'];
+      if (!name) {
+        response.status(400).json({ error: 'Missing name' });
+        return;
+      }
+      // If the type is missing or not part of the list of accepted type
+      if (!type || !allowedTypes.includes(type)) {
+        response.status(400).json({ error: 'Missing type' });
+        return;
+      }
+      if (!data && type !== 'folder') {
+        response.status(400).json({ error: 'Missing data' });
+        return;
+      }
+      if (parentId) {
+        const filesCollection = dbClient.db.collection('files');
+        const parentidObject = new ObjectID(parentId);
+        const existingFileWithParentId = await filesCollection.findOne(
+          { _id: parentidObject, userId: existingUser._id },
+        );
+        if (!existingFileWithParentId) {
+          response.status(400).json({ error: 'Parent not found' });
+          return;
+        }
+        if (existingFileWithParentId.type !== 'folder') {
+          response.status(400).json({ error: 'Parent is not a folder' });
+          return;
+        }
+      }
+      if (type === 'folder') {
+        const filesCollection = dbClient.db.collection('files');
+        const inserted = await filesCollection.insertOne(
+          {
+            userId: existingUser._id,
+            name,
+            type,
+            isPublic,
+            parentId,
+          },
+        );
+        const id = inserted.insertedId;
+        response.status(201).json({
+          id, userId, name, type, isPublic, parentId,
+        });
+      } else {
+        const filesCollection = dbClient.db.collection('files');
+        const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
+        const uuidstr = uuidv4();
+        const parentidObject = new ObjectID(parentId);
+        // file name
+        const filePath = `${folderPath}/${uuidstr}`;
+        const buff = Buffer.from(data, 'base64');
+        try {
+          await fs.mkdir(folderPath);
+        } catch (error) {
+          // do nothing if folder already exists
+        }
+        try {
+          await fs.writeFile(filePath, buff, 'utf-8');
+        } catch (error) {
+          console.log(error);
+        }
+        const inserted = await filesCollection.insertOne(
+          {
+            userId: existingUser._id,
+            name,
+            type,
+            isPublic,
+            parentId: parentidObject,
+            localPath: filePath,
+          },
+        );
+        const fileId = inserted.insertedId;
+        // start thumbnail generation worker
+        if (type === 'image') {
+          const id = inserted.insertedId;
+          const jobName = `Image thumbnail [${userId}-${id}]`;
+          fileQueue.add({ userId, fileId, name: jobName });
+        }
+        response.status(201).json({
+          id: fileId, userId, name, type, isPublic, parentId,
+        });
+      }
+    } else {
+      response.status(401).json({ error: 'Unauthorized' });
     }
-    response.status(statusCode).send(returnData);
   }
 }
+
+module.exports = FilesController;

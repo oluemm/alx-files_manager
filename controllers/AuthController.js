@@ -3,7 +3,7 @@ import { v4 as uuid4 } from 'uuid';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
-export default class AuthController {
+class AuthController {
   static async getConnect(request, response) {
     let credential = '';
     let statusCode = 400;
@@ -63,3 +63,5 @@ export default class AuthController {
     }
   }
 }
+
+module.exports = AuthController;
