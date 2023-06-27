@@ -8,35 +8,46 @@ export default class AuthController {
     // const auth = request.get('Authorization'); // works too
     const auth = (request.headers.authorization || '').split(' ')[1] || '';
     // console.log(atob(auth));
-    const [email, password] = atob(auth).split(':');
+    // Authorization header validation
+    if ((!auth) || (typeof (auth) !== 'string') || (auth.slice(0, 6) !== 'Basic ')) {
+      response.status(401).send({ error: 'Unauthorized' });
+    }
+    // eslint hates atob(auth)
+    const credentials = Buffer.from(auth, 'base64').toString('utf8');
+    const [email, password] = credentials.split(':');
+    if (!email || !password) {
+      response.status(401).send({ error: 'Unauthorized' });
+    }
+    // access users collection in mongo
     const users = dbClient.db.collection('users');
     // console.log(email, password);
-    const hashedPassword = sha1(password)
+    const hashedPassword = sha1(password);
+    // retrieve user whose password and email matches the given
     const user = await users.findOne({ email, password: hashedPassword });
     // console.log(user);
-    if (!user) {
+    if (!user) { // if no user is found
       response.status(401).send({ error: 'Unauthorized' });
     } else {
-      const uuid = uuid4();
-      // console.log(uuid);
-      const key = `auth_${uuid}`;
+      const token = uuid4();
+      // console.log(token);
+      const key = `auth_${token}`;
       // console.log(user);
       await redisClient.set(key, user._id.toString(), 24 * 60 * 60);
-      response.status(200).send({ token: uuid });
+      response.status(200).send({ token });
     }
   }
 
   static async getDisconnect(request, response) {
-    const xToken = request.get('X-Token');
-    // console.log(xToken);
-    // console.log(`auth_${xToken}`);
-    const authToken = await redisClient.get(`auth_${xToken}`);
-    // console.log(authToken);
-    if (!authToken) {
+    const token = request.get('X-Token');
+    // console.log(token);
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+    // console.log(userId);
+    if (!userId) {
       response.status(401).send({ error: 'Unauthorized' });
     } else {
-      await redisClient.del(`auth_${xToken}`);
-      response.status(204).send();
+      await redisClient.del(key);
+      response.status(204).send({});
     }
   }
 }
