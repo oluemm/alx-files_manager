@@ -18,9 +18,13 @@ class AuthController {
       credential = auth.split(' ')[1] || '';
       // console.log(credential);
     }
+
     // eslint hates atob(auth)
     const credentials = Buffer.from(credential, 'base64').toString('utf8');
     // console.log(credentials);
+    // TODO :: incase u need to convert back at any time
+    // const crpted = Buffer.from('emiwest@sweetmail.com:toto1234!', 'utf8').toString('base64')
+    // console.log(crpted);
     const [email, password] = credentials.split(':');
     if (!email || !password) {
       statusCode = 401;
