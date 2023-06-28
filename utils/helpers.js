@@ -1,4 +1,3 @@
-const { Response } = require('express');
 const { ObjectID } = require('mongodb');
 const dbClient = require('./db');
 const redisClient = require('./redis');

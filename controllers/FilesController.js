@@ -10,7 +10,7 @@ const { ObjectID } = require('mongodb');
 const dbClient = require('../utils/db');
 const redisClient = require('../utils/redis');
 const {
-  getUserFromToken, unauthorizedLogin, notFound, userExists,
+  getUserFromToken, unauthorizedLogin, notFound,
 } = require('../utils/helpers');
 
 // create a thumbnail generation queue in redis
@@ -328,7 +328,6 @@ class FilesController {
     const key = `auth_${token}`;
     const userId = await redisClient.get(key);
     // convert id from string to the ObjectID format it usually is in mongodb
-    const userObjId = new ObjectID(userId);
     const fileId = new ObjectID(id);
     if (userId) {
       const fileFilter = {

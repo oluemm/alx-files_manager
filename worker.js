@@ -3,7 +3,6 @@ const { promisify } = require('util');
 const Queue = require('bull/lib/queue');
 const imgThumbnail = require('image-thumbnail');
 const { ObjectID } = require('mongodb');
-const redisClient = require('./utils/redis');
 const dbClient = require('./utils/db');
 
 const writeFileAsync = promisify(writeFile);
@@ -60,4 +59,5 @@ userQueue.process(async (job, done) => {
     throw new Error('User not found');
   }
   console.log(`Welcome ${user.email}!`);
+  done();
 });
