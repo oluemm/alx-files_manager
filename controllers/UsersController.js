@@ -1,7 +1,10 @@
-import sha1 from 'sha1';
-import { ObjectID } from 'mongodb';
-import dbClient from '../utils/db';
-import redisClient from '../utils/redis';
+const Queue = require('bull');
+const sha1 = require('sha1');
+const { ObjectID } = require('mongodb');
+const dbClient = require('../utils/db');
+const redisClient = require('../utils/redis');
+
+const userQueue = new Queue('email sending');
 
 class UsersController {
   static async postNew(request, response) {
@@ -29,9 +32,10 @@ class UsersController {
         // create new user in db
         const userList = await users.insertOne({ email, password: hashedPassword });
         // console.log(userList);
-        const newUser = userList.ops[0];
+        const userId = userList.insertedId;
+        userQueue.add({ userId });
         // console.log(newUser);
-        response.status(201).send({ id: newUser._id, email });
+        response.status(201).send({ id: userId, email });
       }
     }
   }
