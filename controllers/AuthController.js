@@ -6,13 +6,13 @@ const redisClient = require('../utils/redis');
 class AuthController {
   static async getConnect(request, response) {
     let credential = '';
-    let statusCode = 400;
+    let statusCode = 401;
     let message = { error: 'Unauthorized' };
     // const auth = request.get('Authorization'); // works too
     const auth = (request.headers.authorization || '');
     // Authorization header validation
     if ((!auth) || (typeof (auth) !== 'string') || (auth.slice(0, 6) !== 'Basic ')) {
-      statusCode = 401;
+      statusCode = 400;
       message = { error: 'Unauthorized' };
     } else {
       credential = auth.split(' ')[1] || '';
@@ -51,6 +51,7 @@ class AuthController {
       }
     }
     response.status(statusCode).send(message);
+    console.log(response.statusCode);
   }
 
   static async getDisconnect(request, response) {
